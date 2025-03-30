@@ -1,36 +1,58 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../auth/AuthContext';
 import Wrapper from '../components/Wrapper';
 import api from '../api/axios';
 
 interface Category {
     id: number;
     name: string;
-    description?: string;
 }
 
-function AddRecipe() {
-    const { isAuthenticated } = useContext(AuthContext);
+function AddRecipeWithImage() {
     const navigate = useNavigate();
 
+    // Polja
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [steps, setSteps] = useState<string[]>(['']);
     const [ingredients, setIngredients] = useState<string[]>(['']);
+
     const [categories, setCategories] = useState<Category[]>([]);
-    const [selectedCategoryName, setSelectedCategoryName] = useState<string>(''); // izbran categoryName
+    const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+
+    // Možnost “Dodaj novo kategorijo”
+    const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+
+    // File input za sliko
+    const [imageFile, setImageFile] = useState<File | null>(null);
 
     useEffect(() => {
-        // Naložimo seznam kategorij z backenda
+        // Naložimo obstoječe kategorije
         api.get('/categories')
             .then(res => setCategories(res.data))
             .catch(err => console.error(err));
     }, []);
 
-    if (!isAuthenticated) {
-        return <Wrapper>Za dodajanje receptov se moraš prijaviti!</Wrapper>;
-    }
+    // Dodaj korak
+    const handleAddStep = () => {
+        setSteps([...steps, '']);
+    };
 
+    const handleChangeStep = (index: number, value: string) => {
+        const updated = [...steps];
+        updated[index] = value;
+        setSteps(updated);
+    };
+
+    // Odstrani korak (opcijsko, če želiš)
+    const handleRemoveStep = (index: number) => {
+        const updated = [...steps];
+        updated.splice(index, 1);
+        setSteps(updated);
+    };
+
+    // Dodaj sestavino
     const handleAddIngredient = () => {
         setIngredients([...ingredients, '']);
     };
@@ -41,28 +63,47 @@ function AddRecipe() {
         setIngredients(updated);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    // Ustvari novo kategorijo
+// Ustvarimo recept s sliko
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        const data = {
-            title,
-            description,
-            ingredients: ingredients.map(name => ({ name })),
-            categoryName: selectedCategoryName || undefined,
-            // Lahko namesto categoryName pošlješ categoryId, odvisno kaj si se odločil v backendu
-        };
-        api.post('/recipes', data)
-            .then(() => {
-                alert('Recept ustvarjen!');
-                navigate('/recipes');
-            })
-            .catch(err => console.error(err));
+        try {
+            // Ker uploadamo sliko in ostale podatke, uporabimo formData
+            const formData = new FormData();
+
+            // Polja dajemo kot JSON v "jsonData"
+            const jsonData = {
+                title,
+                description,
+                steps,
+                categoryId: selectedCategoryId,
+                // ingredients => polje objektov { name: ... }
+                ingredients: ingredients.map(name => ({ name })),
+            };
+            formData.append('jsonData', JSON.stringify(jsonData));
+
+            // Dodamo sliko (če je izbrana)
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+
+            // Kličemo "create-with-image"
+            await api.post('/recipes/create-with-image', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            alert('Recept uspešno dodan z sliko!');
+            navigate('/recipes');
+        } catch (err) {
+            console.error(err);
+            alert('Napaka pri dodajanju recepta z sliko!');
+        }
     };
 
     return (
         <Wrapper>
-            <h2>Dodaj nov recept</h2>
+            <h2>Dodaj nov recept (s sliko)</h2>
             <form onSubmit={handleSubmit}>
-
                 <div className="mb-3">
                     <label className="form-label">Naslov</label>
                     <input
@@ -83,38 +124,136 @@ function AddRecipe() {
                     />
                 </div>
 
+                {/* Koraki */}
+                <div className="mb-3">
+                    <label className="form-label">Koraki priprave</label>
+                    {steps.map((step, idx) => (
+                        <div key={idx} className="d-flex mb-2">
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder={`Korak ${idx + 1}`}
+                                value={step}
+                                onChange={(e) => handleChangeStep(idx, e.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="btn btn-danger ms-2"
+                                onClick={() => handleRemoveStep(idx)}
+                            >
+                                X
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={handleAddStep}
+                    >
+                        Dodaj korak
+                    </button>
+                </div>
+
                 {/* Sestavine */}
                 <div className="mb-3">
                     <label className="form-label">Sestavine</label>
-                    {ingredients.map((ing, i) => (
+                    {ingredients.map((ing, idx) => (
                         <input
-                            key={i}
+                            key={idx}
                             type="text"
                             className="form-control mb-2"
+                            placeholder={`Sestavina ${idx + 1}`}
                             value={ing}
-                            onChange={(e) => handleChangeIngredient(i, e.target.value)}
+                            onChange={(e) => handleChangeIngredient(idx, e.target.value)}
                         />
                     ))}
-                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={handleAddIngredient}>
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={handleAddIngredient}
+                    >
                         Dodaj sestavino
                     </button>
                 </div>
 
-                {/* Dropdown za kategorije */}
+                {/* Kategorija - z možnostjo "Dodaj kategorijo" */}
                 <div className="mb-3">
                     <label className="form-label">Kategorija</label>
                     <select
                         className="form-select"
-                        value={selectedCategoryName}
-                        onChange={(e) => setSelectedCategoryName(e.target.value)}
+                        value={selectedCategoryId ?? ''}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'new') {
+                                // user izbral (Dodaj kategorijo)
+                                setShowNewCategoryInput(true);
+                                setSelectedCategoryId(null);
+                            } else if (val === '') {
+                                // user izbral (Izberi kategorijo)
+                                setShowNewCategoryInput(false);
+                                setSelectedCategoryId(null);
+                            } else {
+                                setShowNewCategoryInput(false);
+                                setSelectedCategoryId(Number(val));
+                            }
+                        }}
                     >
                         <option value="">(Izberi kategorijo)</option>
                         {categories.map(cat => (
-                            <option key={cat.id} value={cat.name}>
+                            <option key={cat.id} value={cat.id}>
                                 {cat.name}
                             </option>
                         ))}
+                        <option value="new">(Dodaj kategorijo)</option>
                     </select>
+                </div>
+
+                {/* Polje za input nove kategorije, če showNewCategoryInput=true */}
+                {showNewCategoryInput && (
+                    <div className="mb-3">
+                        <label className="form-label">Nova kategorija</label>
+                        <div className="d-flex">
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="btn btn-outline-success ms-2"
+                                onClick={() => {
+                                    if (!newCategoryName) return;
+                                    // POST /categories
+                                    api.post('/categories', { name: newCategoryName })
+                                        .then(res => {
+                                            const createdCat = res.data;
+                                            setCategories([...categories, createdCat]);
+                                            setSelectedCategoryId(createdCat.id);
+                                            setShowNewCategoryInput(false);
+                                            setNewCategoryName('');
+                                        })
+                                        .catch(err => console.error(err));
+                                }}
+                            >
+                                Ustvari
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Polje za sliko */}
+                <div className="mb-3">
+                    <label className="form-label">Slika recepta</label>
+                    <input
+                        type="file"
+                        className="form-control"
+                        onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                                setImageFile(e.target.files[0]);
+                            }
+                        }}
+                    />
                 </div>
 
                 <button type="submit" className="btn btn-success">Shrani recept</button>
@@ -123,4 +262,4 @@ function AddRecipe() {
     );
 }
 
-export default AddRecipe;
+export default AddRecipeWithImage;

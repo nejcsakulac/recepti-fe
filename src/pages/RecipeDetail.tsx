@@ -19,7 +19,7 @@ interface Comment {
 
 interface Rating {
     id: number;
-    value: number;
+    value: number | string;
     user?: User;
 }
 
@@ -27,10 +27,13 @@ interface Recipe {
     id: number;
     title: string;
     description?: string;
+    image?: string;        // Slika recepta
+    steps?: string[];      // Koraki recepta
     ingredients?: { id: number; name: string }[];
     category?: { id: number; name: string };
     comments?: Comment[];
     ratings?: Rating[];
+    author?: User;         // Avtor recepta
 }
 
 function RecipeDetail() {
@@ -51,17 +54,15 @@ function RecipeDetail() {
 
     const handleAddComment = () => {
         if (!id || !isAuthenticated) return;
-        // Tu pridobi pravi userId iz AuthContext, za demo uporabljamo 1
         api.post('/comments', {
             content: newComment,
             recipeId: Number(id),
-            userId: 1,
         })
             .then(res => {
                 if (recipe) {
                     setRecipe({
                         ...recipe,
-                        comments: [...(recipe.comments || []), res.data],
+                        comments: [...(recipe.comments ?? []), res.data],
                     });
                 }
                 setNewComment('');
@@ -74,13 +75,12 @@ function RecipeDetail() {
         api.post('/ratings', {
             value: newRating,
             recipeId: Number(id),
-            userId: 1,
         })
             .then(res => {
                 if (recipe) {
                     setRecipe({
                         ...recipe,
-                        ratings: [...(recipe.ratings || []), res.data],
+                        ratings: [...(recipe.ratings ?? []), res.data],
                     });
                 }
                 alert('Hvala za oceno!');
@@ -90,16 +90,15 @@ function RecipeDetail() {
 
     if (!recipe) return <Wrapper>Nalaganje recepta...</Wrapper>;
 
-    const avgRating = recipe.ratings && recipe.ratings.length > 0
-        ? (recipe.ratings.reduce((sum, r) => sum + r.value, 0) / recipe.ratings.length).toFixed(2)
+    const avgRating = (recipe.ratings ?? []).length > 0
+        ? ((recipe.ratings ?? []).reduce((sum, r) => sum + Number(r.value), 0) / (recipe.ratings ?? []).length).toFixed(2)
         : 'Ni ocen';
 
-    // Agregacija ocen: koliko ocen je dano za vsako vrednost
-    const ratingDistribution = recipe.ratings?.reduce((acc: Record<string, number>, curr) => {
+    const ratingDistribution = (recipe.ratings ?? []).reduce((acc: Record<string, number>, curr) => {
         const key = curr.value.toString();
         acc[key] = (acc[key] || 0) + 1;
         return acc;
-    }, {}) || {};
+    }, {});
 
     return (
         <Wrapper>
@@ -108,13 +107,47 @@ function RecipeDetail() {
             </button>
 
             <h2>{recipe.title}</h2>
-            <p>{recipe.description}</p>
+
+            {/* Prikaži sliko recepta, če obstaja */}
+            {recipe.image && (
+                <div style={{ marginBottom: '20px' }}>
+                    <img
+                        src={`http://localhost:3000/uploads/${recipe.image}`}
+                        alt="Slika recepta"
+                        style={{ width: '100%', maxWidth: '500px', height: 'auto' }}
+                    />
+                </div>
+            )}
+
+            {/* Prikaži avtorja, če obstaja */}
+            {recipe.author && (
+                <p>
+                    <strong>Avtor:</strong> {recipe.author.firstName} {recipe.author.lastName}
+                </p>
+            )}
+
+            {recipe.description ? (
+                <p>{recipe.description}</p>
+            ) : (
+                <p><em>Opis ni na voljo. Spodaj najdete korake priprave:</em></p>
+            )}
+
+            {recipe.steps && recipe.steps.length > 0 && (
+                <>
+                    <h4>Koraki priprave:</h4>
+                    <ol>
+                        {recipe.steps.map((step, idx) => (
+                            <li key={idx}>{step}</li>
+                        ))}
+                    </ol>
+                </>
+            )}
 
             {recipe.category && (
                 <p><strong>Kategorija:</strong> {recipe.category.name}</p>
             )}
 
-            <p><strong>Povprečna ocena:</strong> {avgRating}</p>
+            <p><strong>Povprečna ocena:</strong> {avgRating} / 5</p>
 
             <h4>Sestavine:</h4>
             <ul>
@@ -130,7 +163,7 @@ function RecipeDetail() {
                     <li key={c.id} className="mb-3">
                         {c.user?.avatar && (
                             <img
-                                src={c.user.avatar}
+                                src={`http://localhost:3000/uploads/${c.user.avatar}`}
                                 alt="avatar"
                                 style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '8px' }}
                             />
@@ -172,25 +205,19 @@ function RecipeDetail() {
                 </>
             )}
 
-            <hr />
-            <h5>Agregacija ocen:</h5>
-            <ul>
-                {Object.keys(ratingDistribution).map((key) => (
-                    <li key={key}>
-                        {key} / 5: {ratingDistribution[key]} ocen
-                    </li>
-                ))}
-            </ul>
-
-            <hr />
-            <h5>Vse ocene:</h5>
-            <ul>
-                {recipe.ratings?.map(r => (
-                    <li key={r.id}>
-                        Ocena: {r.value}/5 {r.user ? `od ${r.user.firstName} ${r.user.lastName}` : ''}
-                    </li>
-                ))}
-            </ul>
+            {Object.keys(ratingDistribution).length > 0 && (
+                <>
+                    <hr />
+                    <h5>Vse ocene</h5>
+                    <ul>
+                        {Object.keys(ratingDistribution).map((key) => (
+                            <li key={key}>
+                                {key} / 5: {ratingDistribution[key]} ocen
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
         </Wrapper>
     );
 }
