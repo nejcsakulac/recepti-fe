@@ -92,17 +92,17 @@ function AddRecipeWithImage() {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            alert('Recept uspešno dodan z sliko!');
+            alert('Recept uspešno dodan!');
             navigate('/recipes');
         } catch (err) {
             console.error(err);
-            alert('Napaka pri dodajanju recepta z sliko!');
+            alert('Napaka pri dodajanju recepta!');
         }
     };
 
     return (
         <Wrapper>
-            <h2>Dodaj nov recept (s sliko)</h2>
+            <h2>Dodaj nov recept</h2>
             <form onSubmit={handleSubmit}>
                 <div className="mb-3">
                     <label className="form-label">Naslov</label>

@@ -2,9 +2,28 @@ import { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 
+// Uporabi require za uvoz jwt-decode
+import jwt_decode from 'jwt-decode';
+
+interface TokenPayload {
+    sub: number;
+    email: string;
+    isAdmin: boolean;
+}
+
 function Header() {
-    const { isAuthenticated, logout } = useContext(AuthContext);
+    const { token, isAuthenticated, logout } = useContext(AuthContext);
     const navigate = useNavigate();
+
+    let isAdmin = false;
+    if (token) {
+        try {
+            const decoded = jwt_decode(token) as TokenPayload;
+            isAdmin = decoded.isAdmin;
+        } catch (error) {
+            console.error('Error decoding token:', error);
+        }
+    }
 
     const handleLogout = () => {
         logout();
@@ -14,10 +33,9 @@ function Header() {
     return (
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
             <div className="container">
-                {/* Levi del: Logotip in ime blagovne znamke */}
                 <Link className="navbar-brand d-flex align-items-center" to="/">
                     <img
-                        src="/logo.png" // prilagodi pot do tvoje slike
+                        src="/logo.png"
                         alt="Recepti Logo"
                         style={{ width: '40px', height: '40px', marginRight: '10px' }}
                     />
@@ -37,7 +55,6 @@ function Header() {
                 </button>
 
                 <div className="collapse navbar-collapse" id="navbarNav">
-                    {/* Centralni meni */}
                     <ul className="navbar-nav mx-auto">
                         <li className="nav-item">
                             <Link className="nav-link" to="/recipes">Recepti</Link>
@@ -50,11 +67,15 @@ function Header() {
                                 <li className="nav-item">
                                     <Link className="nav-link" to="/profile">Moj profil</Link>
                                 </li>
+                                {isAdmin && (
+                                    <li className="nav-item">
+                                        <Link className="nav-link" to="/admin">Admin</Link>
+                                    </li>
+                                )}
                             </>
                         )}
                     </ul>
 
-                    {/* Desni del */}
                     <ul className="navbar-nav ms-auto">
                         {isAuthenticated ? (
                             <li className="nav-item">

@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AddRecipe from './pages/AddRecipe';
 import Profile from "./pages/Profile.tsx";
+import Admin from "./pages/Admin.tsx";
 
 function App() {
     return (
@@ -21,6 +22,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/admin" element={<Admin />} />
             </Routes>
             <Footer />
         </BrowserRouter>
