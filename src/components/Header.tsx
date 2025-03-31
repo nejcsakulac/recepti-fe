@@ -1,8 +1,6 @@
 import { useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
-
-// Uporabi require za uvoz jwt-decode
 import jwt_decode from 'jwt-decode';
 
 interface TokenPayload {
@@ -63,6 +61,9 @@ function Header() {
                             <>
                                 <li className="nav-item">
                                     <Link className="nav-link" to="/recipes/add">Dodaj recept</Link>
+                                </li>
+                                <li className="nav-item">
+                                    <Link className="nav-link" to="/my-recipes">Moji recepti</Link>
                                 </li>
                                 <li className="nav-item">
                                     <Link className="nav-link" to="/profile">Moj profil</Link>
